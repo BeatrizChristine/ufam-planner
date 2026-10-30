@@ -1,0 +1,29 @@
+# Dependencies and builds
+node_modules/
+.npm-cache/
+.m2/
+.maven-home/
+.next/
+out/
+target/
+bin/
+*.class
+*.tsbuildinfo
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Environment and local data
+.env
+.env.local
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+.history/
+.github/modernize/
+
+# Docker / database
+postgres-data/

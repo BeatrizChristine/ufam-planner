@@ -1,0 +1,70 @@
+services:
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ufam_planner}
+      POSTGRES_USER: ${POSTGRES_USER:-ufam_planner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ufam_planner}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ufam_planner}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ufam_planner}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-ufam_planner}
+      APP_JWT_SECRET: ${JWT_SECRET:-change-this-development-secret-with-at-least-32-characters}
+      APP_REFRESH_COOKIE_SECURE: ${APP_REFRESH_COOKIE_SECURE:-false}
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000
+      UFAM_ECAMPUS_BASE_URL: ${UFAM_ECAMPUS_BASE_URL:-https://ecampus.ufam.edu.br/ecampus}
+      UFAM_CATALOG_AUTO_SYNC_ENABLED: ${UFAM_CATALOG_AUTO_SYNC_ENABLED:-true}
+      UFAM_CATALOG_SYNC_DELAY_MS: ${UFAM_CATALOG_SYNC_DELAY_MS:-900000}
+      UFAM_CATALOG_SYNC_BATCH_SIZE: ${UFAM_CATALOG_SYNC_BATCH_SIZE:-5}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_AUTH: ${SPRING_MAIL_AUTH:-false}
+      SPRING_MAIL_STARTTLS: ${SPRING_MAIL_STARTTLS:-false}
+      APP_FRONTEND_BASE_URL: ${APP_FRONTEND_BASE_URL:-http://localhost:3000}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-nao-responda@ufamplanner.local}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
+        API_PROXY_TARGET: http://backend:8080
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_MAIL_TEST_MODE: ${NEXT_PUBLIC_MAIL_TEST_MODE:-true}
+    environment:
+      NEXT_PUBLIC_API_URL: /api/v1
+      API_PROXY_TARGET: http://backend:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
